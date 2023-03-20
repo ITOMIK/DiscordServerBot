@@ -51,7 +51,7 @@ async def hello(ctx, member : discord.Member = None):  # Создаём функ
     if(member==None):
          await ctx.send(f"вы не ввели имя")
     else:
-        if member.id in member.guild.voice_states.keys():
+        if member.id in member.guild._voice_states.keys():
             if get_deaf(member):
                 await move(member, get_deaf)
 
