@@ -8,7 +8,7 @@ token = 'MTA4MzczNzgwODYzNzc5NjQyMw.GpyRvD.rmMbEDcT9_rxYYfuExxUxCNQFfCG20jscPiaT
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, activity=discord.Game(name="!hello; !hello_all"))
-
+ 
 
 def get_deaf(member):
     return member.voice.self_deaf
@@ -46,12 +46,14 @@ async def move_all(members: list[Member], check_function):
 
 
 @bot.command()
-async def hello(ctx, member: discord.Member):  # Создаём функцию и передаём аргумент ctx.
+async def hello(ctx, member : discord.Member = None):  # Создаём функцию и передаём аргумент ctx.
     author = ctx.message.author  # Объявляем переменную author и записываем туда информацию об авторе.
-    if member.id in member.guild.voice_states.keys():
-        if get_deaf(member):
-            await move(member, get_deaf)
-
+    if(member==None):
+         await ctx.send(f"вы не ввели имя")
+    else:
+        if member.id in member.guild.voice_states.keys():
+            if get_deaf(member):
+                await move(member, get_deaf)
 
 @bot.command()
 async def hello_all(ctx, ):
