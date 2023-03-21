@@ -5,8 +5,8 @@ import discord
 from discord import Member, VoiceChannel, Status
 from discord.ext import commands
 from threading import Thread
+from settings import token
 
-token = 'MTA4MzczNzgwODYzNzc5NjQyMw.GpyRvD.rmMbEDcT9_rxYYfuExxUxCNQFfCG20jscPiaTc'
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, activity=discord.Game(name="!helpme"))
