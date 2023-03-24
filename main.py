@@ -1,12 +1,21 @@
 import asyncio
 import time
+import os
 
 import discord
 from discord import Member, VoiceChannel, Status
 from discord.ext import commands
 from threading import Thread
 
-token = 'MTA4MzczNzgwODYzNzc5NjQyMw.GpyRvD.rmMbEDcT9_rxYYfuExxUxCNQFfCG20jscPiaTc'
+with open(".env") as f: 
+    for line in f:
+        k,v = line.split("=")
+        print(k,v)
+        os.environ[k]=v
+
+
+token = os.environ.get("DISCORD_BOT_TOKEN")
+
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, activity=discord.Game(name="!helpme"))
