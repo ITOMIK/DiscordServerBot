@@ -14,6 +14,8 @@ from threading import Thread
 
 from discord.utils import get
 
+from pytube import YouTube
+
 with open(".env") as f: 
     for line in f:
         k,v = line.split("=")
@@ -102,19 +104,17 @@ async def move_deaf(check_function):
         await asyncio.sleep(1)
 
 def get_album_tracks(artist, album):
-    api_url = "http://ws.audioscrobbler.com/2.0/"
-    api_key = "909c541b2a91ba2e708cdcf86513db32"
 
     params = {
         "method": "album.getinfo",
-        "api_key": api_key,
+        "api_key": LASTFM_API_KEY,
         "artist": artist,
         "album": album,
         "format": "json",
     }
 
     try:
-        response = requests.get(api_url, params=params)
+        response = requests.get(LASTFM_API_URL, params=params)
         response.raise_for_status()
         data = response.json()
         tracks = data["album"]["tracks"]["track"]
@@ -139,10 +139,6 @@ async def playAlbum(ctx, *args):
 
         if tracks is not None:
             await ctx.send(f"Треки альбома '{album_name}' исполнителя '{artist_name}':")
-            # Проверка, не находится ли бот уже в голосовом канале
-           # if not ctx.voice_client:
-            #    voice_channel_connection = await author_voice_channel.connect()
-             #   await ctx.send(f"Бот подключен к голосовому каналу: {author_voice_channel.name}")
             author_voice_channel = ctx.author.voice.channel
 
             if not author_voice_channel:
@@ -165,32 +161,34 @@ async def playAlbum(ctx, *args):
 
 @bot.command()
 async def play(ctx, url):
-    # Используем yt-dlp для получения прямой ссылки на аудиофайл
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
+    # Если бот не в голосовом канале, подключаем его
+    if ctx.voice_client is None or not ctx.voice_client.is_connected():
+        voice_channel = ctx.author.voice.channel
+        voice_channel_connection = await voice_channel.connect()
+    else:
+        voice_channel_connection = ctx.voice_client
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        print(info)
-        audio_url = info['formats'][0]['url']
+    try:
+        # Используем pytube для получения прямой ссылки на аудиофайл
+        yt = YouTube(url)
+        audio_url = yt.streams.filter(only_audio=True).first().url
+    except Exception as e:
+        print(f"Error extracting audio URL: {e}")
+        return
 
-    # Используем discord.py для воспроизведения аудиофайла
-    voice_channel = ctx.author.voice.channel
-    voice_channel_connection = await voice_channel.connect()
-    print(info)
-    audio = AudioSegment.from_url(audio_url, format="mp3")
-    play(audio)
+    try:
+        # Прямой путь к аудиофайлу с использованием FFmpegPCMAudio
+        audio_source = discord.FFmpegPCMAudio(audio_url)
+        voice_channel_connection.play(audio_source)
 
-    # Ожидаем завершения воспроизведения, прежде чем отключить бота от голосового канала
-    while voice_channel_connection.is_playing():
-        await asyncio.sleep(1)
+        # Ожидаем завершения воспроизведения, прежде чем отключить бота от голосового канала
+        while voice_channel_connection.is_playing():
+            await asyncio.sleep(1)
+    except Exception as e:
+        print(f"Error playing audio: {e}")
+    finally:
+        if not ctx.voice_client.is_playing():
+            await voice_channel_connection.disconnect()
 
-    await voice_channel_connection.disconnect()
 
 bot.run(token)
