@@ -220,7 +220,7 @@ async def playAlbum(ctx, *args):
                 yt = YouTube(urls[url])
                 stream = get_best_stream(yt.streams, "lowest")
                 if stream is None:
-                    await ctx.send("No suitable streams found.")
+                    await ctx.send("Ошибка при нахождении потока.")
                     return
                 audio_url = stream.url
 
@@ -283,7 +283,7 @@ async def playRadio(ctx, name):
                 yt = YouTube(t)
                 stream = get_best_stream(yt.streams, "lowest")
                 if stream is None:
-                    await ctx.send("No suitable streams found.")
+                    await ctx.send("Ошибка при нахождении потока.")
                     return
                 audio_url = stream.url
                 queues[guild_id].append(audio_url)
@@ -319,7 +319,7 @@ async def forsePlay(ctx,url):
         yt = YouTube(url)
         stream = get_best_stream(yt.streams, quality)
         if stream is None:
-            await ctx.send("No suitable streams found.")
+            await ctx.send("Ошибка при нахождении потока.")
             return
 
         audio_url = stream.url
@@ -343,9 +343,9 @@ async def skip(ctx):
     # Skip the current track
     if ctx.voice_client and ctx.voice_client.is_playing():
         ctx.voice_client.stop()
-        await ctx.send("Skipped the current track.")
+        await ctx.send("Пропущен текущий трек.")
     else:
-        await ctx.send("No track is currently playing.")
+        await ctx.send("Ничего не играет.")
 
 
 @bot.command()
@@ -359,10 +359,10 @@ async def stop(ctx):
     if ctx.voice_client:
         ctx.voice_client.stop()
         queues[guild_id].clear()
-        await ctx.send("Stopped playback and cleared the queue.")
+        await ctx.send("Остановка и отчистка очереди")
         await ctx.voice_client.disconnect()
     else:
-        await ctx.send("The bot is not currently in a voice channel.")
+        await ctx.send("Бот не находится в канале")
 
 
 async def play_queue(ctx, voice_channel_connection):
