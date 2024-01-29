@@ -184,6 +184,7 @@ async def playSong(ctx, *args):
             await play(ctx, track)
 @bot.command()
 async def playAlbum(ctx, *args):
+
     name = ' '.join(args)
 
     if len(name.split("+")) != 2:
@@ -196,11 +197,24 @@ async def playAlbum(ctx, *args):
 
         if tracks is not None:
             await ctx.send(f"Треки альбома '{album_name}' исполнителя '{artist_name}'добавлены в очередь")
+            urls = []
             for track in tracks:
-                print("g")
                 t = await get_youtube_link(track, artist_name)
                 if t is not None:
-                    await play(ctx, t)  # Исправлено: Используйте await при вызове асинхронной функции
+                    urls.append(t)
+
+            for url in range(0,len(urls)-2):
+                yt = YouTube(urls[url])
+                stream = get_best_stream(yt.streams, "lowest")
+                if stream is None:
+                    await ctx.send("No suitable streams found.")
+                    return
+                audio_url = stream.url
+
+                queue.append(audio_url)
+
+            await play(ctx, urls[-1])
+
         else:
             await ctx.send("Не удалось получить треки.")
 
@@ -235,16 +249,34 @@ async def get_top_tracks(username):
         return None
 
 
+async def streamIn(ctx,urls):
+    for url in range(0, len(urls) - 2):
+        yt = YouTube(urls[url])
+        stream = get_best_stream(yt.streams, "lowest")
+        if stream is None:
+            await ctx.send("No suitable streams found.")
+            return
+        audio_url = stream.url
 
+        queue.append(audio_url)
+
+    await play(ctx, urls[-1])
 
 @bot.command()
 async def playRadio(ctx, name):
     tracks = await get_top_tracks(name)
+    score = 0
     if tracks is not None:
+        urls = []
         for track in tracks:
+            score+=1
+            if(score==10):
+                await streamIn(ctx,urls)
+                score = 0
             t = await get_youtube_link(track['track'], track['artist'])
+            print(t)
             if t is not None:
-                await play(ctx, t)  # Исправлено: Используйте await при вызове асинхронной функции
+                urls.append(t)
     else:
         await ctx.send("Не удалось получить треки.")
 
