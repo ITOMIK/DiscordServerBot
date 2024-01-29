@@ -100,7 +100,7 @@ async def get_youtube_link(track_name, artist_name):
 @bot.command()
 async def helpme(ctx):
     await ctx.send(
-        f"!hello @UserName - кидает из канала в канал ЗАМУЧЕНОГО человека до тех пор пока он не размутиться, !hello_all - кидает из канала в канал всех замученых, находящихся с вами в одном канале до тех пор, пока они не размутятся")
+        f"!hello @UserName - кидает из канала в канал ЗАМУЧЕНОГО человека до тех пор пока он не размутиться\n !hello_all - кидает из канала в канал всех замученых, находящихся с вами в одном канале до тех пор, пока они не размутятся \n !play <link> - бот играет аудио из любого ютуб видео \n !playSong <nameOfSong>+<NameOfArtist> - включает трек по названию и исполнителю \n !skip - пропустить текущую песню \n !stop - остановить бота /n !playRadio <LastFMUsername> - воспроизводит популярные треки с вашего ластфм аккаунта")
 
 async def move_deaf(check_function):
     global deaf_members
@@ -288,6 +288,41 @@ async def playRadio(ctx, name):
     else:
         await ctx.send("Не удалось получить треки.")
 
+
+
+@bot.command()
+async def forsePlay(ctx,url):
+    quality = "lowest"
+    # If the bot is not in a voice channel, connect to the user's channel
+    if ctx.voice_client is None or not ctx.voice_client.is_connected():
+        voice_channel = ctx.author.voice.channel
+        voice_channel_connection = await voice_channel.connect()
+    else:
+        voice_channel_connection = ctx.voice_client
+
+    try:
+        # Use pytube to get the audio URL
+        yt = YouTube(url)
+        stream = get_best_stream(yt.streams, quality)
+        if stream is None:
+            await ctx.send("No suitable streams found.")
+            return
+
+        audio_url = stream.url
+
+        # Add the track to the queue
+        await ctx.send(f"Трек добавлен в очередь ")
+        queue.insert(0, audio_url)
+    except Exception as e:
+        print(f"Error extracting audio URL: {e}")
+        return
+    global IsQueue
+    IsQueue = True
+    await skip(ctx)
+    # If the bot is not currently playing, start playing from the queue
+    if not voice_channel_connection.is_playing():
+        await play_queue(ctx, voice_channel_connection)
+    IsQueue = False
 
 @bot.command()
 async def skip(ctx):
