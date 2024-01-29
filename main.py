@@ -30,7 +30,10 @@ ffmpeg_path = r'D:\ffmpeg-6.1.1-essentials_build\bin\ffmpeg.exe'
 LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY").strip()
 
+queues = {}
+
 queue = []
+
 IsQueue = False
 intents = discord.Intents.default()
 intents.message_content = True
@@ -100,7 +103,7 @@ async def get_youtube_link(track_name, artist_name):
 @bot.command()
 async def helpme(ctx):
     await ctx.send(
-        f"!hello @UserName - кидает из канала в канал ЗАМУЧЕНОГО человека до тех пор пока он не размутиться\n !hello_all - кидает из канала в канал всех замученых, находящихся с вами в одном канале до тех пор, пока они не размутятся \n !play <link> - бот играет аудио из любого ютуб видео \n !playSong <nameOfSong>+<NameOfArtist> - включает трек по названию и исполнителю \n !skip - пропустить текущую песню \n !stop - остановить бота /n !playRadio <LastFMUsername> - воспроизводит популярные треки с вашего ластфм аккаунта")
+        f"!hello @UserName - кидает из канала в канал ЗАМУЧЕНОГО человека до тех пор пока он не размутиться\n!hello_all - кидает из канала в канал всех замученых, находящихся с вами в одном канале до тех пор, пока они не размутятся\n!play <link> - бот играет аудио из любого ютуб видео\n!playSong <nameOfSong>+<NameOfArtist> - включает трек по названию и исполнителю\n!skip - пропустить текущую песню\n!stop - остановить бота\n!playRadio <LastFMUsername> - воспроизводит популярные треки с вашего ластфм аккаунта\n!forsePlay <link> - скипает текущий трек и добавляет данный в начало очереди")
 
 async def move_deaf(check_function):
     global deaf_members
@@ -142,6 +145,9 @@ async def get_album_tracks(artist, album):
 
 @bot.command()
 async def play(ctx, url, quality="lowest"):
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
     # If the bot is not in a voice channel, connect to the user's channel
     if ctx.voice_client is None or not ctx.voice_client.is_connected():
         voice_channel = ctx.author.voice.channel
@@ -160,8 +166,8 @@ async def play(ctx, url, quality="lowest"):
         audio_url = stream.url
 
         # Add the track to the queue
-        await ctx.send(f"Трек добавлен в очередь ")
-        queue.append(audio_url)
+        await ctx.send(f"Трек добавлен в очередь {queues}")
+        queues[guild_id].append(audio_url)
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
         return
@@ -184,6 +190,9 @@ async def playSong(ctx, *args):
             await play(ctx, track)
 @bot.command()
 async def playAlbum(ctx, *args):
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
     if ctx.voice_client is None or not ctx.voice_client.is_connected():
         voice_channel = ctx.author.voice.channel
         voice_channel_connection = await voice_channel.connect()
@@ -213,7 +222,7 @@ async def playAlbum(ctx, *args):
                         await ctx.send("No suitable streams found.")
                         return
                     audio_url = stream.url
-                    queue.append(audio_url)
+                    queues[guild_id].append(audio_url)
                     # If the bot is not currently playing, start playing from the queue
                     if not voice_channel_connection.is_playing():
                         await play_queue(ctx, voice_channel_connection)
@@ -257,6 +266,9 @@ async def get_top_tracks(username):
 
 @bot.command()
 async def playRadio(ctx, name):
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
     if ctx.voice_client is None or not ctx.voice_client.is_connected():
         voice_channel = ctx.author.voice.channel
         voice_channel_connection = await voice_channel.connect()
@@ -276,7 +288,7 @@ async def playRadio(ctx, name):
                     await ctx.send("No suitable streams found.")
                     return
                 audio_url = stream.url
-                queue.append(audio_url)
+                queues[guild_id].append(audio_url)
                 # If the bot is not currently playing, start playing from the queue
                 if not voice_channel_connection.is_playing():
                     await play_queue(ctx, voice_channel_connection)
@@ -292,6 +304,9 @@ async def playRadio(ctx, name):
 
 @bot.command()
 async def forsePlay(ctx,url):
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
     quality = "lowest"
     # If the bot is not in a voice channel, connect to the user's channel
     if ctx.voice_client is None or not ctx.voice_client.is_connected():
@@ -312,7 +327,7 @@ async def forsePlay(ctx,url):
 
         # Add the track to the queue
         await ctx.send(f"Трек добавлен в очередь ")
-        queue.insert(0, audio_url)
+        queues[guild_id].insert(0, audio_url)
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
         return
@@ -336,10 +351,13 @@ async def skip(ctx):
 
 @bot.command()
 async def stop(ctx):
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
     # Stop playback and clear the queue
     if ctx.voice_client:
         ctx.voice_client.stop()
-        queue.clear()
+        queues[guild_id].clear()
         await ctx.send("Stopped playback and cleared the queue.")
         await ctx.voice_client.disconnect()
     else:
@@ -347,8 +365,11 @@ async def stop(ctx):
 
 
 async def play_queue(ctx, voice_channel_connection):
-    while queue:
-        track_url = queue.pop(0)
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
+    while queues[guild_id]:
+        track_url = queues[guild_id].pop(0)
         audio_source = discord.FFmpegPCMAudio(track_url)
         voice_channel_connection.play(audio_source)
 
@@ -358,7 +379,7 @@ async def play_queue(ctx, voice_channel_connection):
 
     # Disconnect from the voice channel after the queue is empty
     if not voice_channel_connection.is_playing() and not IsQueue:
-        print(IsQueue)
+        #print(IsQueue)
         await voice_channel_connection.disconnect()
 
 
