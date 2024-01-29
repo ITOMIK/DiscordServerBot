@@ -1,11 +1,18 @@
 import asyncio
 import time
 import os
+import requests
+
+import yt_dlp
+from pydub import AudioSegment
+from pydub.playback import play
 
 import discord
 from discord import Member, VoiceChannel, Status
 from discord.ext import commands
 from threading import Thread
+
+from discord.utils import get
 
 with open(".env") as f: 
     for line in f:
@@ -15,12 +22,17 @@ with open(".env") as f:
 
 
 token = os.environ.get("DISCORD_BOT_TOKEN")
+ffmpeg_path = r'D:\ffmpeg-6.1.1-essentials_build\bin\ffmpeg.exe'
+
+LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
+LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY").strip()
+
+
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, activity=discord.Game(name="!helpme"))
 deaf_members = []
-
 
 def get_deaf(member: Member) -> bool:
     return member.voice.self_deaf
@@ -71,7 +83,6 @@ async def helpme(ctx):
     await ctx.send(
         f"!hello @UserName - кидает из канала в канал ЗАМУЧЕНОГО человека до тех пор пока он не размутиться, !hello_all - кидает из канала в канал всех замученых, находящихся с вами в одном канале до тех пор, пока они не размутятся")
 
-
 async def move_deaf(check_function):
     global deaf_members
     while True:
@@ -90,5 +101,96 @@ async def move_deaf(check_function):
             await member[0].edit(voice_channel=member[0].guild.voice_channels[-2])
         await asyncio.sleep(1)
 
+def get_album_tracks(artist, album):
+    api_url = "http://ws.audioscrobbler.com/2.0/"
+    api_key = "909c541b2a91ba2e708cdcf86513db32"
+
+    params = {
+        "method": "album.getinfo",
+        "api_key": api_key,
+        "artist": artist,
+        "album": album,
+        "format": "json",
+    }
+
+    try:
+        response = requests.get(api_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        tracks = data["album"]["tracks"]["track"]
+        return [track["name"] for track in tracks]
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        return None
+
+
+@bot.command()
+async def playAlbum(ctx, *args):
+    name = ' '.join(args)
+    print(len(name.split("+")), name.split("+"))
+
+    if len(name.split("+")) != 2:
+        await ctx.send("Не удалось получить треки.")
+    else:
+        artist_name = name.split("+")[0]
+        album_name = name.split("+")[1]
+        tracks = get_album_tracks(artist_name, album_name)
+        print(artist_name, album_name)
+
+        if tracks is not None:
+            await ctx.send(f"Треки альбома '{album_name}' исполнителя '{artist_name}':")
+            # Проверка, не находится ли бот уже в голосовом канале
+           # if not ctx.voice_client:
+            #    voice_channel_connection = await author_voice_channel.connect()
+             #   await ctx.send(f"Бот подключен к голосовому каналу: {author_voice_channel.name}")
+            author_voice_channel = ctx.author.voice.channel
+
+            if not author_voice_channel:
+                await ctx.send("Вы должны находиться в голосовом канале.")
+                return
+
+            # Подключение к голосовому каналу
+            voice_channel_connection = await author_voice_channel.connect()
+            #await ctx.send(f"Бот подключен к голосовому каналу: {author_voice_channel.name}")
+            for track in tracks:
+                await ctx.send(f"p! play {track}")
+                # Отключение от голосового канала
+            await voice_channel_connection.disconnect()
+           # await ctx.send(f"Бот отключен от голосового канала.")
+
+        else:
+            await ctx.send("Не удалось получить треки.")
+
+
+
+@bot.command()
+async def play(ctx, url):
+    # Используем yt-dlp для получения прямой ссылки на аудиофайл
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        print(info)
+        audio_url = info['formats'][0]['url']
+
+    # Используем discord.py для воспроизведения аудиофайла
+    voice_channel = ctx.author.voice.channel
+    voice_channel_connection = await voice_channel.connect()
+    print(info)
+    audio = AudioSegment.from_url(audio_url, format="mp3")
+    play(audio)
+
+    # Ожидаем завершения воспроизведения, прежде чем отключить бота от голосового канала
+    while voice_channel_connection.is_playing():
+        await asyncio.sleep(1)
+
+    await voice_channel_connection.disconnect()
 
 bot.run(token)
