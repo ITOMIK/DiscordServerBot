@@ -31,7 +31,7 @@ LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY").strip()
 
 queue = []
-
+IsQueue = False
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, activity=discord.Game(name="!helpme"))
@@ -184,6 +184,11 @@ async def playSong(ctx, *args):
             await play(ctx, track)
 @bot.command()
 async def playAlbum(ctx, *args):
+    if ctx.voice_client is None or not ctx.voice_client.is_connected():
+        voice_channel = ctx.author.voice.channel
+        voice_channel_connection = await voice_channel.connect()
+    else:
+        voice_channel_connection = ctx.voice_client
 
     name = ' '.join(args)
 
@@ -196,24 +201,26 @@ async def playAlbum(ctx, *args):
         print(artist_name, album_name,tracks )
 
         if tracks is not None:
+            global IsQueue
+            IsQueue = True
             await ctx.send(f"Треки альбома '{album_name}' исполнителя '{artist_name}'добавлены в очередь")
-            urls = []
             for track in tracks:
                 t = await get_youtube_link(track, artist_name)
                 if t is not None:
-                    urls.append(t)
-
-            for url in range(0,len(urls)-2):
-                yt = YouTube(urls[url])
-                stream = get_best_stream(yt.streams, "lowest")
-                if stream is None:
-                    await ctx.send("No suitable streams found.")
-                    return
-                audio_url = stream.url
-
-                queue.append(audio_url)
-
-            await play(ctx, urls[-1])
+                    yt = YouTube(t)
+                    stream = get_best_stream(yt.streams, "lowest")
+                    if stream is None:
+                        await ctx.send("No suitable streams found.")
+                        return
+                    audio_url = stream.url
+                    queue.append(audio_url)
+                    # If the bot is not currently playing, start playing from the queue
+                    if not voice_channel_connection.is_playing():
+                        await play_queue(ctx, voice_channel_connection)
+            IsQueue = False
+            # If the bot is not currently playing, start playing from the queue
+            if not voice_channel_connection.is_playing():
+                await play_queue(ctx, voice_channel_connection)
 
         else:
             await ctx.send("Не удалось получить треки.")
@@ -248,35 +255,36 @@ async def get_top_tracks(username):
         print(f"Error during API request: {e}")
         return None
 
-
-async def streamIn(ctx,urls):
-    for url in range(0, len(urls) - 2):
-        yt = YouTube(urls[url])
-        stream = get_best_stream(yt.streams, "lowest")
-        if stream is None:
-            await ctx.send("No suitable streams found.")
-            return
-        audio_url = stream.url
-
-        queue.append(audio_url)
-
-    await play(ctx, urls[-1])
-
 @bot.command()
 async def playRadio(ctx, name):
+    if ctx.voice_client is None or not ctx.voice_client.is_connected():
+        voice_channel = ctx.author.voice.channel
+        voice_channel_connection = await voice_channel.connect()
+    else:
+        voice_channel_connection = ctx.voice_client
     tracks = await get_top_tracks(name)
-    score = 0
     if tracks is not None:
-        urls = []
+        global IsQueue
+        IsQueue = True
         for track in tracks:
-            score+=1
-            if(score==10):
-                await streamIn(ctx,urls)
-                score = 0
             t = await get_youtube_link(track['track'], track['artist'])
             print(t)
             if t is not None:
-                urls.append(t)
+                yt = YouTube(t)
+                stream = get_best_stream(yt.streams, "lowest")
+                if stream is None:
+                    await ctx.send("No suitable streams found.")
+                    return
+                audio_url = stream.url
+                queue.append(audio_url)
+                # If the bot is not currently playing, start playing from the queue
+                if not voice_channel_connection.is_playing():
+                    await play_queue(ctx, voice_channel_connection)
+        IsQueue = False
+            # If the bot is not currently playing, start playing from the queue
+        if not voice_channel_connection.is_playing():
+            await play_queue(ctx, voice_channel_connection)
+
     else:
         await ctx.send("Не удалось получить треки.")
 
@@ -314,7 +322,8 @@ async def play_queue(ctx, voice_channel_connection):
             await asyncio.sleep(1)
 
     # Disconnect from the voice channel after the queue is empty
-    if not voice_channel_connection.is_playing():
+    if not voice_channel_connection.is_playing() and not IsQueue:
+        print(IsQueue)
         await voice_channel_connection.disconnect()
 
 
