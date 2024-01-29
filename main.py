@@ -2,10 +2,11 @@ import asyncio
 import time
 import os
 import requests
-
+import random
 import yt_dlp
 from pydub import AudioSegment
 from pydub.playback import play
+from youtubesearchpython import VideosSearch
 
 import discord
 from discord import Member, VoiceChannel, Status
@@ -29,7 +30,7 @@ ffmpeg_path = r'D:\ffmpeg-6.1.1-essentials_build\bin\ffmpeg.exe'
 LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY").strip()
 
-
+queue = []
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -80,6 +81,22 @@ async def hello_all(ctx):
         deaf_members.append(i)
 
 
+async def get_youtube_link(track_name, artist_name):
+
+    if track_name and artist_name:
+        # Step 3: Use YouTube API to search for the video link
+        videos_search = VideosSearch(f"{artist_name} {track_name}", limit = 1)
+        results = videos_search.result()
+
+        # Step 4: Extract the YouTube link
+        if 'result' in results and results['result']:
+            youtube_link = results['result'][0]['link']
+            return youtube_link
+
+    return None
+
+
+
 @bot.command()
 async def helpme(ctx):
     await ctx.send(
@@ -103,7 +120,7 @@ async def move_deaf(check_function):
             await member[0].edit(voice_channel=member[0].guild.voice_channels[-2])
         await asyncio.sleep(1)
 
-def get_album_tracks(artist, album):
+async def get_album_tracks(artist, album):
 
     params = {
         "method": "album.getinfo",
@@ -123,45 +140,9 @@ def get_album_tracks(artist, album):
         print(f"Error: {e}")
         return None
 
-
 @bot.command()
-async def playAlbum(ctx, *args):
-    name = ' '.join(args)
-    print(len(name.split("+")), name.split("+"))
-
-    if len(name.split("+")) != 2:
-        await ctx.send("Не удалось получить треки.")
-    else:
-        artist_name = name.split("+")[0]
-        album_name = name.split("+")[1]
-        tracks = get_album_tracks(artist_name, album_name)
-        print(artist_name, album_name)
-
-        if tracks is not None:
-            await ctx.send(f"Треки альбома '{album_name}' исполнителя '{artist_name}':")
-            author_voice_channel = ctx.author.voice.channel
-
-            if not author_voice_channel:
-                await ctx.send("Вы должны находиться в голосовом канале.")
-                return
-
-            # Подключение к голосовому каналу
-            voice_channel_connection = await author_voice_channel.connect()
-            #await ctx.send(f"Бот подключен к голосовому каналу: {author_voice_channel.name}")
-            for track in tracks:
-                await ctx.send(f"p! play {track}")
-                # Отключение от голосового канала
-            await voice_channel_connection.disconnect()
-           # await ctx.send(f"Бот отключен от голосового канала.")
-
-        else:
-            await ctx.send("Не удалось получить треки.")
-
-
-
-@bot.command()
-async def play(ctx, url):
-    # Если бот не в голосовом канале, подключаем его
+async def play(ctx, url, quality="lowest"):
+    # If the bot is not in a voice channel, connect to the user's channel
     if ctx.voice_client is None or not ctx.voice_client.is_connected():
         voice_channel = ctx.author.voice.channel
         voice_channel_connection = await voice_channel.connect()
@@ -169,26 +150,153 @@ async def play(ctx, url):
         voice_channel_connection = ctx.voice_client
 
     try:
-        # Используем pytube для получения прямой ссылки на аудиофайл
+        # Use pytube to get the audio URL
         yt = YouTube(url)
-        audio_url = yt.streams.filter(only_audio=True).first().url
+        stream = get_best_stream(yt.streams, quality)
+        if stream is None:
+            await ctx.send("No suitable streams found.")
+            return
+
+        audio_url = stream.url
+
+        # Add the track to the queue
+        await ctx.send(f"Трек добавлен в очередь ")
+        queue.append(audio_url)
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
         return
 
+    # If the bot is not currently playing, start playing from the queue
+    if not voice_channel_connection.is_playing():
+        await play_queue(ctx, voice_channel_connection)
+
+
+@bot.command()
+async def playSong(ctx, *args):
+    name = ' '.join(args)
+    if len(name.split("+")) != 2:
+        await ctx.send("Не удалось получить треки.")
+    else:
+        artist_name = name.split("+")[0]
+        track_name = name.split("+")[1]
+        track = await get_youtube_link(track_name, artist_name)
+        if track is not None:
+            await play(ctx, track)
+@bot.command()
+async def playAlbum(ctx, *args):
+    name = ' '.join(args)
+
+    if len(name.split("+")) != 2:
+        await ctx.send("Не удалось получить треки.")
+    else:
+        artist_name = name.split("+")[0]
+        album_name = name.split("+")[1]
+        tracks = await get_album_tracks(artist_name, album_name)
+        print(artist_name, album_name,tracks )
+
+        if tracks is not None:
+            await ctx.send(f"Треки альбома '{album_name}' исполнителя '{artist_name}'добавлены в очередь")
+            for track in tracks:
+                print("g")
+                t = await get_youtube_link(track, artist_name)
+                if t is not None:
+                    await play(ctx, t)  # Исправлено: Используйте await при вызове асинхронной функции
+        else:
+            await ctx.send("Не удалось получить треки.")
+
+
+async def get_top_tracks(username):
+    base_url = "http://ws.audioscrobbler.com/2.0/"
+    method = "user.gettoptracks"
+    params = {
+        "user": username,
+        "api_key": LASTFM_API_KEY,
+        "method": method,
+        "format": "json"
+    }
+
     try:
-        # Прямой путь к аудиофайлу с использованием FFmpegPCMAudio
-        audio_source = discord.FFmpegPCMAudio(audio_url)
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()  # Raise an HTTPError for bad responses
+
+        data = response.json()
+        tracks = data["toptracks"]["track"]
+
+        # Extracting relevant information
+        result = [{"artist": track["artist"]["name"], "track": track["name"]} for track in tracks]
+
+        # Shuffle the list randomly
+        random.shuffle(result)
+
+        return result
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error during API request: {e}")
+        return None
+
+
+
+
+@bot.command()
+async def playRadio(ctx, name):
+    tracks = await get_top_tracks(name)
+    if tracks is not None:
+        for track in tracks:
+            t = await get_youtube_link(track['track'], track['artist'])
+            if t is not None:
+                await play(ctx, t)  # Исправлено: Используйте await при вызове асинхронной функции
+    else:
+        await ctx.send("Не удалось получить треки.")
+
+
+@bot.command()
+async def skip(ctx):
+    # Skip the current track
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+        await ctx.send("Skipped the current track.")
+    else:
+        await ctx.send("No track is currently playing.")
+
+
+@bot.command()
+async def stop(ctx):
+    # Stop playback and clear the queue
+    if ctx.voice_client:
+        ctx.voice_client.stop()
+        queue.clear()
+        await ctx.send("Stopped playback and cleared the queue.")
+        await ctx.voice_client.disconnect()
+    else:
+        await ctx.send("The bot is not currently in a voice channel.")
+
+
+async def play_queue(ctx, voice_channel_connection):
+    while queue:
+        track_url = queue.pop(0)
+        audio_source = discord.FFmpegPCMAudio(track_url)
         voice_channel_connection.play(audio_source)
 
-        # Ожидаем завершения воспроизведения, прежде чем отключить бота от голосового канала
+        # Wait for the track to finish playing
         while voice_channel_connection.is_playing():
             await asyncio.sleep(1)
-    except Exception as e:
-        print(f"Error playing audio: {e}")
-    finally:
-        if not ctx.voice_client.is_playing():
-            await voice_channel_connection.disconnect()
+
+    # Disconnect from the voice channel after the queue is empty
+    if not voice_channel_connection.is_playing():
+        await voice_channel_connection.disconnect()
+
+
+def get_best_stream(streams, quality):
+    if quality.lower() == "highest":
+        return streams.get_highest_resolution()
+    elif quality.lower() == "lowest":
+        return streams.get_lowest_resolution()
+    else:
+        for stream in streams:
+            if quality.lower() in str(stream):
+                return stream
+        return None
+
 
 
 bot.run(token)
