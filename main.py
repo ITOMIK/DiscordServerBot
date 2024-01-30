@@ -1,19 +1,13 @@
 import asyncio
-import time
 import os
 import requests
 import random
-import yt_dlp
-from pydub import AudioSegment
 from pydub.playback import play
 from youtubesearchpython import VideosSearch
 
 import discord
-from discord import Member, VoiceChannel, Status
+from discord import Member
 from discord.ext import commands
-from threading import Thread
-
-from discord.utils import get
 
 from pytube import YouTube
 
@@ -328,6 +322,10 @@ async def playRadio(ctx, name):
 
 @bot.command()
 async def forsePlay(ctx,url):
+    global IsQueue
+    if (IsQueue == True):
+        await ctx.send("Дождитесь загрузки предыдущего альбома(это проблема api youtube)")
+        return
     guild_id = ctx.guild.id
     if guild_id not in queues:
         queues[guild_id] = []
@@ -355,7 +353,6 @@ async def forsePlay(ctx,url):
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
         return
-    global IsQueue
     IsQueue = True
     await skip(ctx)
     # If the bot is not currently playing, start playing from the queue
