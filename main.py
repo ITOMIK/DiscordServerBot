@@ -157,24 +157,20 @@ async def play(ctx, url, quality="lowest"):
     else:
         voice_channel_connection = ctx.voice_client
 
-    try:
-        # Use pytube to get the audio URL
-        yt = YouTube(url)
-        stream = get_best_stream(yt.streams, quality)
-        if stream is None:
-            await ctx.send("No suitable streams found.")
-            return
-
-        audio_url = stream.url
-
-        # Add the track to the queue
-        await ctx.send(f"Трек добавлен в очередь")
-        _queues[guild_id].append(audio_url)
-        queues[guild_id].append(audio_url)
-    except Exception as e:
-        await ctx.send(f"Ошибка: {e}")
-        print(f"Error extracting audio URL: {e}")
+    # Use pytube to get the audio URL
+    yt = YouTube(url)
+    stream = get_best_stream(yt.streams, quality)
+    #print(yt, stream)
+    if stream is None:
+        await ctx.send("No suitable streams found.")
         return
+
+    audio_url = stream.url
+
+    # Add the track to the queue
+    await ctx.send(f"Трек добавлен в очередь")
+    queues[guild_id].append(audio_url)
+
 
     # If the bot is not currently playing, start playing from the queue
     if not voice_channel_connection.is_playing():
