@@ -374,6 +374,9 @@ async def stop(ctx):
     guild_id = ctx.guild.id
     if guild_id not in queues:
         queues[guild_id] = []
+    if guild_id not in isQueues:
+        isQueues[guild_id] = False
+    isQueues[guild_id] = False
     # Stop playback and clear the queue
     if ctx.voice_client:
         ctx.voice_client.stop()
