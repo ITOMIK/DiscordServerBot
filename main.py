@@ -28,6 +28,11 @@ queues = {}
 
 _queues ={}
 
+rightNamesOfTracks = {
+    "8 Cпособов": "8 Способов Как Бросить ...",
+    "8 способов": "8 Способов Как Бросить ..."
+}
+
 queue = []
 isQueues = {}
 IsQueue = False
@@ -80,16 +85,17 @@ async def hello_all(ctx):
         deaf_members.append(i)
 
 
-async def get_youtube_link(track_name, artist_name):
+async def get_youtube_link(name):
 
-    if track_name and artist_name:
+    if name:
         # Step 3: Use YouTube API to search for the video link
-        videos_search = VideosSearch(f"{artist_name} {track_name}", limit = 1)
+        videos_search = VideosSearch(f"{name}", limit = 1)
         results = videos_search.result()
 
         # Step 4: Extract the YouTube link
         if 'result' in results and results['result']:
             youtube_link = results['result'][0]['link']
+            print(youtube_link)
             return youtube_link
 
 
@@ -134,6 +140,7 @@ async def get_album_tracks(artist, album):
         response = requests.get(LASTFM_API_URL, params=params)
         response.raise_for_status()
         data = response.json()
+        print(data)
         tracks = data["album"]["tracks"]["track"]
         return [track["name"] for track in tracks]
     except requests.exceptions.RequestException as e:
@@ -180,12 +187,11 @@ async def play(ctx, url, quality="lowest"):
 @bot.command()
 async def playSong(ctx, *args):
     name = ' '.join(args)
-    if len(name.split("+")) != 2:
+    if len(name)<=0:
         await ctx.send("Не удалось получить треки.")
     else:
-        artist_name = name.split("+")[0]
-        track_name = name.split("+")[1]
-        track = await get_youtube_link(track_name, artist_name)
+        track = await get_youtube_link(name)
+        print(track)
         if track is not None:
             await play(ctx, track)
 
@@ -193,6 +199,8 @@ async def playSong(ctx, *args):
 
 @bot.command()
 async def playAlbum(ctx, *args):
+    _name = ' '.join(args)
+    print(_name)
     guild_id = ctx.guild.id
     if guild_id not in queues:
         queues[guild_id] = []
@@ -207,16 +215,15 @@ async def playAlbum(ctx, *args):
     else:
         voice_channel_connection = ctx.voice_client
 
-    name = ' '.join(args)
+    name = await search_album(_name)
 
     if len(name.split("+")) != 2:
         await ctx.send("Не удалось получить треки.")
     else:
         artist_name = name.split("+")[0]
         album_name = name.split("+")[1]
+        print(artist_name, album_name)
         tracks = await get_album_tracks(artist_name, album_name)
-        print(artist_name, album_name,tracks )
-
         if tracks is not None:
             global IsQueue
             isQueues[guild_id] = True
@@ -244,6 +251,32 @@ async def playAlbum(ctx, *args):
         else:
             await ctx.send("Не удалось получить треки.")
 
+
+async def search_album(albumname):
+    base_url = "http://ws.audioscrobbler.com/2.0/"
+    method = "album.search"
+    params = {
+        "album": albumname,
+        "api_key": LASTFM_API_KEY,
+        "method": method,
+        "format": "json"
+    }
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()  # Raise an HTTPError for bad responses
+
+        data = response.json()
+        result = data["results"]["albummatches"]["album"]
+        if(len(result)>0):
+            for key, value in rightNamesOfTracks.items():
+                if(result[0]["name"].startswith(key)):
+                    result[0]["name"]=value
+            answ = result[0]["artist"]+"+"+result[0]["name"]
+            return answ
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error during API request: {e}")
+        return None
 
 async def get_top_tracks(username):
     base_url = "http://ws.audioscrobbler.com/2.0/"
