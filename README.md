@@ -10,7 +10,7 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
   
 - `!play <link>`: Plays audio from any YouTube video.
   
-- `!playSong <nameOfSong>+<NameOfArtist>`: Plays a track by its title and artist.
+- `!playSong <nameOfSong>`: Plays a track by its title and artist.
   
 - `!skip`: Skips the current song.
   
@@ -20,7 +20,7 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
   
 - `!forcePlay <link>`: Skips the current track and adds the specified link to the beginning of the queue.
   
-- `!playAlbum <artistName>+<albumName>`: Plays all tracks from the specified album.
+- `!playAlbum <albumName>`: Plays all tracks from the specified album.
 
 ## Usage
 
