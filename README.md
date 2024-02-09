@@ -21,6 +21,9 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
 - `!forcePlay <link>`: Skips the current track and adds the specified link to the beginning of the queue.
   
 - `!playAlbum <albumName>`: Plays all tracks from the specified album.
+  
+- `!autoPlay`: Plays tracks from chart of LastFM.
+
 
 ## Usage
 
