@@ -29,4 +29,6 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
 
 To use TERPILA in your Discord server, simply invite the bot to your server and start issuing commands.
 
+link: https://discord.com/api/oauth2/authorize?client_id=1083737808637796423&permissions=8&scope=bot
+
 Enjoy the enhanced functionality provided by TERPILA!
