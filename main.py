@@ -232,7 +232,7 @@ async def playAlbum(ctx, *args):
             if tracks is not None:
                 global IsQueue
                 isQueues[guild_id] = True
-                await ctx.send(f"Треки альбома '{album_name}' исполнителя '{artist_name}'добавлены в очередь")
+                await ctx.send(f"Треки альбома {album_name} исполнителя {artist_name} добавлены в очередь")
                 for track in tracks:
                     t = await get_youtube_link(track+" "+artist_name)
                     if t is not None:
@@ -374,6 +374,7 @@ async def autoPlay(ctx):
                     if not voice_channel_connection.is_playing():
                         await play_queue(ctx, voice_channel_connection)
             isQueues[guild_id] = False
+            await play_queue(ctx, voice_channel_connection)
             # If the bot is not currently playing, start playing from the queue
             if not voice_channel_connection.is_playing():
                 await play_queue(ctx, voice_channel_connection)
@@ -422,10 +423,10 @@ async def playRadio(ctx, name):
                     if not voice_channel_connection.is_playing():
                         await play_queue(ctx, voice_channel_connection)
             isQueues[guild_id] = False
+            await play_queue(ctx, voice_channel_connection)
                 # If the bot is not currently playing, start playing from the queue
             if not voice_channel_connection.is_playing():
                 await play_queue(ctx, voice_channel_connection)
-
         else:
             await ctx.send("Не удалось получить треки.")
     except Exception as e:
