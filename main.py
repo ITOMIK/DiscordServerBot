@@ -73,11 +73,11 @@ async def hello(ctx, member: discord.Member = None):  # Создаём функ�
 
 
 @bot.command()
-async def hello_all(ctx):
+async def helloAll(ctx):
     global deaf_members
     print("hello_all")
     author: Member = ctx.message.author
-    members = author.guild.voice_states.keys()
+    members = author.guild._voice_states.keys()
     mem_ch: list[tuple[Member, int]] = [(author.guild.get_member(mem), author.guild.get_member(mem).voice.channel.id)
                                         for mem in members]
     for i in mem_ch:

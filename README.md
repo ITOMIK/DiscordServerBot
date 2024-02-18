@@ -6,7 +6,7 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
 
 - `!hello @UserName`: Throws the specified user from channel to channel until they unmute themselves.
   
-- `!hello_all`: Throws all muted users from the same channel as the bot to different channels until they unmute themselves.
+- `!helloAll`: Throws all muted users from the same channel as the bot to different channels until they unmute themselves.
   
 - `!play <link>`: Plays audio from any YouTube video.
   
