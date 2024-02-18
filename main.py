@@ -5,6 +5,7 @@ import random
 from pydub.playback import play
 from youtubesearchpython import VideosSearch
 
+import re
 import discord
 from discord import Member
 from discord.ext import commands
@@ -19,6 +20,8 @@ with open(".env") as f:
 
 token = os.environ.get("DISCORD_BOT_TOKEN")
 ffmpeg_path = r'D:\ffmpeg-6.1.1-essentials_build\bin\ffmpeg.exe'
+
+url_pattern = r'^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)(?P<video_id>[^\?&\"\'<>]+)$'
 
 LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY").strip()
@@ -105,7 +108,7 @@ async def get_youtube_link(name):
 @bot.command()
 async def helpme(ctx):
     await ctx.send(
-        f">>> **!hello @UserName - кидает из канала в канал ЗАМУЧЕНОГО человека до тех пор пока он не размутиться**\n**!hello_all - кидает из канала в канал всех замученых, находящихся с вами в одном канале до тех пор, пока они не размутятся**\n**!play <link> - бот играет аудио из любого ютуб видео**\n**!playSong <nameOfSong> - включает трек по названию и исполнителю**\n**!skip - пропустить текущую песню**\n**!stop - остановить бота**\n**!playRadio <LastFMUsername> - воспроизводит популярные треки с вашего ластфм аккаунта песни играют до добавления прочих в очередь**\n**!forcePlay <link> - скипает текущий трек и добавляет данный в начало очереди**\n**!playAlbum <albumName> - воспроизводит весь альбом**")
+        f">>> **!hello @UserName - кидает из канала в канал ЗАМУЧЕНОГО человека до тех пор пока он не размутиться**\n**!hello_all - кидает из канала в канал всех замученых, находящихся с вами в одном канале до тех пор, пока они не размутятся**\n**!play <link>/<name> - бот играет аудио из любого ютуб видео**\n**!skip - пропустить текущую песню**\n**!stop - остановить бота**\n**!playRadio <LastFMUsername> - воспроизводит популярные треки с вашего ластфм аккаунта песни играют до добавления прочих в очередь**\n**!forcePlay <name>/<link> - скипает текущий трек и добавляет данный в начало очереди**\n**!playAlbum <albumName> - воспроизводит весь альбом**")
 
 async def move_deaf(check_function):
     global deaf_members
@@ -139,15 +142,14 @@ async def get_album_tracks(artist, album):
         response = requests.get(LASTFM_API_URL, params=params)
         response.raise_for_status()
         data = response.json()
-        print(data)
         tracks = data["album"]["tracks"]["track"]
         return [track["name"] for track in tracks]
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
         return None
 
-@bot.command()
-async def play(ctx, url, quality="lowest"):
+
+async def _play(ctx, url, quality="lowest"):
     try:
         guild_id = ctx.guild.id
         if guild_id not in queues:
@@ -167,7 +169,6 @@ async def play(ctx, url, quality="lowest"):
         # Use pytube to get the audio URL
         yt = YouTube(url)
         stream = get_best_stream(yt.streams, quality)
-        #print(yt, stream)
         if stream is None:
             await ctx.send("**Ошибка при нахождении потока.**")
             return
@@ -189,15 +190,17 @@ async def play(ctx, url, quality="lowest"):
 
 
 @bot.command()
-async def playSong(ctx, *args):
+async def play(ctx, *args):
     name = ' '.join(args)
     if len(name)<=0:
         await ctx.send("**Не удалось получить треки.**")
     else:
-        track = await get_youtube_link(name)
-        print(track)
-        if track is not None:
-            await play(ctx, track)
+        if re.match(url_pattern, name):
+            await _play(ctx, name)
+        else:
+            track = await get_youtube_link(name)
+            if track is not None:
+                await _play(ctx, track)
 
 
 
@@ -205,7 +208,6 @@ async def playSong(ctx, *args):
 async def playAlbum(ctx, *args):
     try:
         _name = ' '.join(args)
-        print(_name)
         guild_id = ctx.guild.id
         if guild_id not in queues:
             queues[guild_id] = []
@@ -227,7 +229,6 @@ async def playAlbum(ctx, *args):
         else:
             artist_name = name.split("+")[0]
             album_name = name.split("+")[1]
-            print(artist_name, album_name)
             tracks = await get_album_tracks(artist_name, album_name)
             if tracks is not None:
                 global IsQueue
@@ -341,15 +342,18 @@ async def get_top_tracks(username):
 
 @bot.command()
 async def autoPlay(ctx):
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
+    if guild_id not in isQueues:
+        isQueues[guild_id] = False
+    if (isQueues[guild_id] == True):
+        await ctx.send("**Дождитесь загрузки предыдущего альбома(это проблема api youtube)**")
+        return
     try:
-        guild_id = ctx.guild.id
-        if guild_id not in queues:
-            queues[guild_id] = []
-        if guild_id not in isQueues:
-            isQueues[guild_id] = False
-        if (isQueues[guild_id] == True):
-            await ctx.send("**Дождитесь загрузки предыдущего альбома(это проблема api youtube)**")
-            return
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            queues[guild_id].clear()
+            ctx.voice_client.stop()
         if ctx.voice_client is None or not ctx.voice_client.is_connected():
             voice_channel = ctx.author.voice.channel
             voice_channel_connection = await voice_channel.connect()
@@ -360,8 +364,9 @@ async def autoPlay(ctx):
             isQueues[guild_id] = True
             await ctx.send(f"> **Играет Топ Чарт LastFM:**")
             for track in tracks:
+                if(ctx.voice_client is None):
+                    return
                 t = await get_youtube_link(track['track'] + " " + track['artist'])
-                # print(t)
                 if t is not None:
                     yt = YouTube(t)
                     stream = get_best_stream(yt.streams, "lowest")
@@ -371,34 +376,32 @@ async def autoPlay(ctx):
                     audio_url = stream.url
                     queues[guild_id].append(audio_url)
                     await ctx.send(f"```ansi\n [0m[1;31m[0m [1;36m{track['artist']}[0m [1;33m[1;34m- {track['track']}[0m[1;33m[0m[0m\n```")
-                    # If the bot is not currently playing, start playing from the queue
                     if not voice_channel_connection.is_playing():
                         await play_queue(ctx, voice_channel_connection)
             isQueues[guild_id] = False
-            await play_queue(ctx, voice_channel_connection)
-            # If the bot is not currently playing, start playing from the queue
-            if not voice_channel_connection.is_playing():
-                await play_queue(ctx, voice_channel_connection)
-
         else:
             await ctx.send("**Не удалось получить треки.**")
     except Exception as e:
-        print(f"Error extracting audio URL: {e}")
-        await ctx.send(f"**Ошибка при добавление трека/альбома**")
+        if (isQueues[guild_id] == True):
+            print(f"Error extracting audio URL: {e}")
+            await ctx.send(f"**Ошибка при добавление трека/альбома**")
         return
 
 
 @bot.command()
 async def playRadio(ctx, name):
+    guild_id = ctx.guild.id
+    if guild_id not in queues:
+        queues[guild_id] = []
+    if guild_id not in isQueues:
+        isQueues[guild_id] = False
+    if (isQueues[guild_id] == True):
+        await ctx.send("**Дождитесь загрузки предыдущего альбома(это проблема api youtube)**")
+        return
     try:
-        guild_id = ctx.guild.id
-        if guild_id not in queues:
-            queues[guild_id] = []
-        if guild_id not in isQueues:
-            isQueues[guild_id] = False
-        if (isQueues[guild_id] == True):
-            await ctx.send("**Дождитесь загрузки предыдущего альбома(это проблема api youtube)**")
-            return
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            queues[guild_id].clear()
+            ctx.voice_client.stop()
         if ctx.voice_client is None or not ctx.voice_client.is_connected():
             voice_channel = ctx.author.voice.channel
             voice_channel_connection = await voice_channel.connect()
@@ -409,8 +412,9 @@ async def playRadio(ctx, name):
             isQueues[guild_id] = True
             await ctx.send(f"> **Радио пользователя {name}:**")
             for track in tracks:
+                if(ctx.voice_client is None):
+                    return
                 t = await get_youtube_link(track['track']+" "+track['artist'])
-                #print(t)
                 if t is not None:
                     yt = YouTube(t)
                     stream = get_best_stream(yt.streams, "lowest")
@@ -420,25 +424,25 @@ async def playRadio(ctx, name):
                     audio_url = stream.url
                     queues[guild_id].append(audio_url)
                     await ctx.send(f"```ansi\n [0m[1;31m[0m [1;36m{track['artist']}[0m [1;33m[1;34m- {track['track']}[0m[1;33m[0m[0m\n```")
-                    # If the bot is not currently playing, start playing from the queue
                     if not voice_channel_connection.is_playing():
                         await play_queue(ctx, voice_channel_connection)
             isQueues[guild_id] = False
-            await play_queue(ctx, voice_channel_connection)
-                # If the bot is not currently playing, start playing from the queue
-            if not voice_channel_connection.is_playing():
-                await play_queue(ctx, voice_channel_connection)
         else:
             await ctx.send("**Не удалось получить треки.**")
     except Exception as e:
-        print(f"Error extracting audio URL: {e}")
-        await ctx.send(f"**Ошибка при добавление трека/альбома**")
+        if (isQueues[guild_id] == True):
+            print(f"Error extracting audio URL: {e}")
+            await ctx.send(f"**Ошибка при добавление трека/альбома**")
         return
 
 
 
 @bot.command()
-async def forcePlay(ctx,url):
+async def forcePlay(ctx,*args):
+    name = ' '.join(args)
+    if len(name) <= 0:
+        await ctx.send("**Не удалось получить трек**")
+        return
     guild_id = ctx.guild.id
     if guild_id not in isQueues:
         isQueues[guild_id] = False
@@ -456,7 +460,14 @@ async def forcePlay(ctx,url):
         voice_channel_connection = ctx.voice_client
 
     try:
+        url = None
         # Use pytube to get the audio URL
+        if re.match(url_pattern, name):
+            url = name
+        else:
+            track = await get_youtube_link(name)
+            if track is not None:
+                url = track
         yt = YouTube(url)
         stream = get_best_stream(yt.streams, quality)
         if stream is None:
@@ -497,10 +508,10 @@ async def stop(ctx):
     isQueues[guild_id] = False
     # Stop playback and clear the queue
     if ctx.voice_client:
-        ctx.voice_client.stop()
         queues[guild_id].clear()
+        ctx.voice_client.stop()
         await ctx.send("**Остановка и отчистка очереди**")
-        await ctx.voice_client.disconnect()
+        #await ctx.voice_client.disconnect()
     else:
         await ctx.send("**Бот не находится в канале**")
 
@@ -514,16 +525,17 @@ async def play_queue(ctx, voice_channel_connection):
     while queues[guild_id]:
         track_url = queues[guild_id].pop(0)
         audio_source = discord. FFmpegPCMAudio(source=track_url,before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",options="-vn")
-        voice_channel_connection.play(audio_source)
+        if(ctx.voice_client is not None):
+            voice_channel_connection.play(audio_source)
 
         # Wait for the track to finish playing
         while voice_channel_connection.is_playing():
             await asyncio.sleep(1)
 
-    # Disconnect from the voice channel after the queue is empty
+        # Disconnect from the voice channel after the queue is empty
     if not voice_channel_connection.is_playing() and not isQueues[guild_id]:
-        #print(IsQueue)
-        await voice_channel_connection.disconnect()
+        if voice_channel_connection:
+            await voice_channel_connection.disconnect()
 
 
 def get_best_stream(streams, quality):
