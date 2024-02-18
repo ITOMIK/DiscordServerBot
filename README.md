@@ -8,7 +8,7 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
   
 - `!helloAll`: Throws all muted users from the same channel as the bot to different channels until they unmute themselves.
   
-- `!play <link>`: Plays audio from any YouTube video.
+- `!play <link>/<name>`: Plays audio from any YouTube video.
   
 - `!playSong <nameOfSong>`: Plays a track by its title and artist.
   
@@ -18,11 +18,11 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
   
 - `!playRadio <LastFMUserName>`: Plays top tracks from your LastFM account.
   
-- `!forcePlay <link>`: Skips the current track and adds the specified link to the beginning of the queue.
-  
 - `!playAlbum <albumName>`: Plays all tracks from the specified album.
   
 - `!autoPlay`: Plays tracks from chart of LastFM.
+
+- `!forcePlay <name>/<link>`: Skips the current song and plays audio from any YouTube video.
 
 
 ## Usage
