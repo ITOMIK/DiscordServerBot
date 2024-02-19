@@ -190,17 +190,22 @@ async def _play(ctx, url, quality="lowest"):
 
 
 @bot.command()
-async def play(ctx, *args):
-    name = ' '.join(args)
-    if len(name)<=0:
-        await ctx.send("**Не удалось получить треки.**")
-    else:
-        if re.match(url_pattern, name):
-            await _play(ctx, name)
+async def play(ctx, *, arg):
+    try:
+        arg = arg.strip('"')
+
+        if len(arg) <= 0:
+            await ctx.send("**Не удалось получить треки.**")
         else:
-            track = await get_youtube_link(name)
-            if track is not None:
-                await _play(ctx, track)
+            if re.match(url_pattern, arg):
+                await _play(ctx, arg)
+            else:
+                track = await get_youtube_link(arg)
+                if track is not None:
+                    await _play(ctx, track)
+    except Exception as e:
+        print(f"Error extracting audio URL: {e}")
+        await ctx.send(f"**Ошибка при добавление трека/альбома**")
 
 
 
