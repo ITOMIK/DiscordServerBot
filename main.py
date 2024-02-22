@@ -32,7 +32,9 @@ _queues ={}
 
 rightNamesOfTracks = {
     "8 Cпособов": "8 Способов Как Бросить ...",
-    "8 способов": "8 Способов Как Бросить ..."
+    "8 способов": "8 Способов Как Бросить ...",
+    "Очень страшная Молли":"ОЧЕНЬ СТРАШНАЯ МОЛЛИ 3, Ч. 1 - EP"
+
 }
 
 queue = []
@@ -229,17 +231,17 @@ async def playAlbum(ctx, *args):
 
         name = await search_album(_name)
 
-        if len(name.split("+")) != 2:
+        if len(name.split("\t")) != 2:
             await ctx.send("**Не удалось получить треки.**")
         else:
-            artist_name = name.split("+")[0]
-            album_name = name.split("+")[1]
+            artist_name = name.split("\t")[0]
+            album_name = name.split("\t")[1]
             tracks = await get_album_tracks(artist_name, album_name)
             if tracks is not None:
                 global IsQueue
                 isQueues[guild_id] = True
                 number = 1
-                await ctx.send(f"> **Треки альбома {album_name} исполнителя {artist_name} добавляются в очередь:**")
+                await ctx.send(f"> Треки альбома **{album_name}** исполнителя **{artist_name}** добавляются в очередь:")
                 for track in tracks:
                     t = await get_youtube_link(track+" "+artist_name)
                     if t is not None:
@@ -287,7 +289,8 @@ async def search_album(albumname):
             for key, value in rightNamesOfTracks.items():
                 if(result[0]["name"].startswith(key)):
                     result[0]["name"]=value
-            answ = result[0]["artist"]+"+"+result[0]["name"]
+            answ = result[0]["artist"]+"\t"+result[0]["name"]
+            print(answ)
             return answ
 
     except requests.exceptions.RequestException as e:
