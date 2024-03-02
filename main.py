@@ -166,7 +166,7 @@ async def search_track(track_name,ctx):
         return f"{artist} - {track}"
     except (requests.exceptions.RequestException, IndexError) as e:
         print("Error:", e)
-        await ctx.send("**Не удалось получить треки.**")
+        await ctx.send("**Не удалось найти треки.**")
         return None
 
 
