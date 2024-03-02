@@ -149,7 +149,7 @@ async def get_album_tracks(artist, album):
         print(f"Error: {e}")
         return None
 
-async def search_track(track_name):
+async def search_track(track_name,ctx):
     params = {
         "method": "track.search",
         "track": track_name,
@@ -166,6 +166,7 @@ async def search_track(track_name):
         return f"{artist} - {track}"
     except (requests.exceptions.RequestException, IndexError) as e:
         print("Error:", e)
+        await ctx.send("**Не удалось получить треки.**")
         return None
 
 
@@ -194,8 +195,7 @@ async def _play(ctx, url, quality="lowest"):
             return
         audio_url = stream.url
         # Add the track to the queue
-        await ctx.send(
-            f"```ansi\nТрек [0m[1;36m{yt.title}[0m - [1;33m[1;34m{yt.author}[0m добавлен в очередь\n```")
+        await ctx.send(f"```ansi\nТрек [0m[1;36m{yt.title}[0m - [1;33m[1;34m{yt.author}[0m добавлен в очередь\n```")
         queues[guild_id].append(audio_url)
 
         # If the bot is not currently playing, start playing from the queue
@@ -218,7 +218,7 @@ async def play(ctx, *, arg):
             if re.match(url_pattern, arg):
                 await _play(ctx, arg)
             else:
-                song_name = await search_track(arg)
+                song_name = await search_track(arg,ctx)
                 track = await get_youtube_link(song_name)
                 if track is not None:
                     await _play(ctx, track)
