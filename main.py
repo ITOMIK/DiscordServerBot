@@ -229,10 +229,9 @@ async def play(ctx, *, arg):
         await ctx.send(f"**Ошибка при добавление трека/альбома**")
 
 
-@bot.command()
-async def playAlbum(ctx, *args):
+async def _playAlbum(ctx, name):
     try:
-        _name = ' '.join(args)
+        _name = name
         guild_id = ctx.guild.id
         if guild_id not in queues:
             queues[guild_id] = []
@@ -288,6 +287,10 @@ async def playAlbum(ctx, *args):
         await ctx.send(f"**Ошибка при добавление альбома**")
         return
 
+@bot.command()
+async def playAlbum(ctx, *args):
+    _name = ' '.join(args)
+    asyncio.create_task(_playAlbum(ctx,_name))
 
 async def search_album(albumname):
     base_url = "http://ws.audioscrobbler.com/2.0/"
