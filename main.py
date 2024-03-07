@@ -3,7 +3,7 @@ import asyncio
 import os
 import requests
 import random
-from pydub.playback import play
+from multiprocessing import Process
 from youtubesearchpython import VideosSearch
 
 import re
@@ -29,6 +29,7 @@ LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY").strip()
 queues = {}
 
 _queues = {}
+
 
 rightNamesOfTracks = {
     "8 Cпособов": "8 Способов Как Бросить ...",
@@ -138,7 +139,6 @@ async def get_album_tracks(artist, album):
         "album": album,
         "format": "json",
     }
-
     try:
         response = requests.get(LASTFM_API_URL, params=params)
         response.raise_for_status()
@@ -169,7 +169,6 @@ async def search_track(track_name,ctx):
         await ctx.send("**Не удалось найти треки.**")
         return None
 
-
 async def _play(ctx, url, quality="lowest"):
     try:
         guild_id = ctx.guild.id
@@ -189,10 +188,12 @@ async def _play(ctx, url, quality="lowest"):
 
         # Use pytube to get the audio URL
         yt = YouTube(url)
-        stream = get_best_stream(yt.streams, quality)
-        if stream is None:
-            await ctx.send("**Ошибка при нахождении потока.**")
+        streams = yt.streams
+        stream = get_best_stream(streams, quality)
+        if stream is None or stream.mime_type.startswith('audio'):
+            await ctx.send("**Не удалось получить аудио-поток.**")
             return
+
         audio_url = stream.url
         # Add the track to the queue
         await ctx.send(f"```ansi\nТрек [0m[1;36m{yt.title}[0m - [1;33m[1;34m{yt.author}[0m добавлен в очередь\n```")
@@ -203,8 +204,7 @@ async def _play(ctx, url, quality="lowest"):
             await play_queue(ctx, voice_channel_connection)
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
-        await ctx.send(f"**Ошибка при добавление трека/альбома**")
-        return
+        await ctx.send(f"**Ошибка при добавлении трека/альбома**")
 
 
 @bot.command()
@@ -216,7 +216,10 @@ async def play(ctx, *, arg):
             await ctx.send("**Не удалось получить треки.**")
         else:
             if re.match(url_pattern, arg):
-                await _play(ctx, arg)
+                p = Process(target=_play, args=(ctx,arg), daemon=True)
+                p.start()
+                p.join()
+                #await _play(ctx, arg)
             else:
                 song_name = await search_track(arg,ctx)
                 track = await get_youtube_link(song_name)
@@ -283,7 +286,7 @@ async def playAlbum(ctx, *args):
                 await ctx.send("**Не удалось получить треки.**")
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
-        await ctx.send(f"**Ошибка при добавление трека/альбома**")
+        await ctx.send(f"**Ошибка при добавление альбома**")
         return
 
 
@@ -307,7 +310,6 @@ async def search_album(albumname):
                 if (result[0]["name"].startswith(key)):
                     result[0]["name"] = value
             answ = result[0]["artist"] + "\t" + result[0]["name"]
-            print(answ)
             return answ
 
     except requests.exceptions.RequestException as e:
@@ -574,9 +576,10 @@ async def play_queue(ctx, voice_channel_connection):
 
 
 def get_best_stream(streams, quality):
-    if quality.lower() == "highest":
+
+    if quality == "highest":
         return streams.get_highest_resolution()
-    elif quality.lower() == "lowest":
+    elif quality== "lowest":
         return streams.get_lowest_resolution()
     else:
         for stream in streams:
