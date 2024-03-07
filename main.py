@@ -3,9 +3,8 @@ import asyncio
 import os
 import requests
 import random
-from multiprocessing import Process
 from youtubesearchpython import VideosSearch
-
+import threading
 import re
 import discord
 from discord import Member
@@ -216,7 +215,7 @@ async def play(ctx, *, arg):
             await ctx.send("**Не удалось получить треки.**")
         else:
             if re.match(url_pattern, arg):
-                p = Process(target=_play, args=(ctx,arg), daemon=True)
+                p = threading.Thread(target=_play, args=(ctx,arg))
                 p.start()
                 p.join()
                 #await _play(ctx, arg)
