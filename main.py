@@ -81,7 +81,6 @@ async def hello(ctx, member: discord.Member = None):  # Создаём функ�
 @bot.command()
 async def helloAll(ctx):
     global deaf_members
-    print("hello_all")
     author: Member = ctx.message.author
     members = author.guild._voice_states.keys()
     mem_ch: list[tuple[Member, int]] = [(author.guild.get_member(mem), author.guild.get_member(mem).voice.channel.id)
@@ -99,7 +98,6 @@ async def get_youtube_link(name):
         # Step 4: Extract the YouTube link
         if 'result' in results and results['result']:
             youtube_link = results['result'][0]['link']
-            print(youtube_link)
             return youtube_link
 
     return None
