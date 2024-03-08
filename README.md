@@ -10,8 +10,6 @@ TERPILA is a Discord bot designed to enhance your server's functionality with va
   
 - `!play <link>/<name>`: Plays audio from any YouTube video.
   
-- `!playSong <nameOfSong>`: Plays a track by its title and artist.
-  
 - `!skip`: Skips the current song.
   
 - `!stop`: Stops the bot.
