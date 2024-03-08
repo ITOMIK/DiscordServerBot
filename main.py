@@ -198,7 +198,7 @@ async def _play(ctx, url, quality="lowest"):
         isQueues[guild_id] == False
         # If the bot is not currently playing, start playing from the queue
         if not voice_channel_connection.is_playing():
-            await play_queue(ctx, voice_channel_connection)
+            asyncio.create_task(play_queue(ctx, voice_channel_connection))
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
         await ctx.send(f"**Ошибка при добавлении трека/альбома**")
@@ -274,7 +274,7 @@ async def _playAlbum(ctx, name):
                 isQueues[guild_id] = False
                 # If the bot is not currently playing, start playing from the queue
                 if not voice_channel_connection.is_playing():
-                    await play_queue(ctx, voice_channel_connection)
+                    asyncio.create_task(play_queue(ctx, voice_channel_connection))
             else:
                 await ctx.send("**Не удалось получить треки.**")
     except Exception as e:
