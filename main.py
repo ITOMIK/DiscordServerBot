@@ -184,7 +184,7 @@ async def _play(ctx, url, quality="lowest"):
             voice_channel_connection = await voice_channel.connect()
         else:
             voice_channel_connection = ctx.voice_client
-
+        isQueues[guild_id] == True
         # Use pytube to get the audio URL
         yt = YouTube(url)
         streams = yt.streams
@@ -197,7 +197,7 @@ async def _play(ctx, url, quality="lowest"):
         # Add the track to the queue
         await ctx.send(f"```ansi\nТрек [0m[1;36m{yt.title}[0m - [1;33m[1;34m{yt.author}[0m добавлен в очередь\n```")
         queues[guild_id].append(audio_url)
-
+        isQueues[guild_id] == False
         # If the bot is not currently playing, start playing from the queue
         if not voice_channel_connection.is_playing():
             await play_queue(ctx, voice_channel_connection)
@@ -215,15 +215,12 @@ async def play(ctx, *, arg):
             await ctx.send("**Не удалось получить треки.**")
         else:
             if re.match(url_pattern, arg):
-                p = threading.Thread(target=_play, args=(ctx,arg))
-                p.start()
-                p.join()
-                #await _play(ctx, arg)
+                asyncio.create_task(_play(ctx,arg))
             else:
                 song_name = await search_track(arg,ctx)
                 track = await get_youtube_link(song_name)
                 if track is not None:
-                    await _play(ctx, track)
+                    asyncio.create_task(_play(ctx, track))
     except Exception as e:
         print(f"Error extracting audio URL: {e}")
         await ctx.send(f"**Ошибка при добавление трека/альбома**")
