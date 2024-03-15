@@ -9,8 +9,13 @@ import re
 import discord
 from discord import Member
 from discord.ext import commands
+import json
+import datetime
 
 from pytube import YouTube
+
+from reputation import check_audit_logs
+from reputation import  decrease_reputation
 
 with open(".env") as f:
     for line in f:
@@ -24,6 +29,8 @@ url_pattern = r'^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/|youtube\
 
 LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY").strip()
+
+startTime = datetime.datetime.now()
 
 queues = {}
 
@@ -182,7 +189,7 @@ async def _play(ctx, url, quality="lowest"):
             voice_channel_connection = await voice_channel.connect()
         else:
             voice_channel_connection = ctx.voice_client
-        isQueues[guild_id] == True
+        #isQueues[guild_id] = True
         # Use pytube to get the audio URL
         yt = YouTube(url)
         streams = yt.streams
@@ -195,7 +202,7 @@ async def _play(ctx, url, quality="lowest"):
         # Add the track to the queue
         await ctx.send(f"```ansi\nТрек [0m[1;36m{yt.title}[0m - [1;33m[1;34m{yt.author}[0m добавлен в очередь\n```")
         queues[guild_id].append(audio_url)
-        isQueues[guild_id] == False
+        #isQueues[guild_id] == False
         # If the bot is not currently playing, start playing from the queue
         if not voice_channel_connection.is_playing():
             asyncio.create_task(play_queue(ctx, voice_channel_connection))
@@ -465,6 +472,11 @@ async def playRadio(ctx, name):
             await ctx.send(f"**Ошибка при добавление трека/альбома**")
         return
 
+@bot.command()
+async def startReputation(ctx):
+    guild_id = ctx.guild.id
+    print(guild_id)
+    asyncio.create_task(check_audit_logs(bot,guild_id,startTime))
 
 @bot.command()
 async def forcePlay(ctx, *args):
@@ -564,7 +576,7 @@ async def play_queue(ctx, voice_channel_connection):
 
         # Wait for the track to finish playing
         while voice_channel_connection.is_playing():
-            await asyncio.sleep(1)
+            await asyncio.sleep(100)
 
         # Disconnect from the voice channel after the queue is empty
     if not voice_channel_connection.is_playing() and not isQueues[guild_id]:
@@ -583,6 +595,7 @@ def get_best_stream(streams, quality):
             if quality.lower() in str(stream):
                 return stream
         return None
+
 
 
 bot.run(token)

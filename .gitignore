@@ -2,6 +2,7 @@ settings.py
 venv
 .idea
 .env
+reputation.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
