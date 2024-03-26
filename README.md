@@ -1,5 +1,7 @@
 # TERPILA Bot for Discord
+<img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54"> <img src="https://img.shields.io/badge/discordpy-7289DA?style=for-the-badge&logo=discord&logoColor=white"> <img src="https://img.shields.io/badge/youtubesearchpython-FF0000?style=for-the-badge&logo=youtube&logoColor=white">
 
+***
 TERPILA is a Discord bot designed to enhance your server's functionality with various commands.
 
 ## Commands
