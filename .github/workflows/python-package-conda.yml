@@ -8,18 +8,37 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+      # Check out the repository code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Set up Python 3.10
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Build Linux
-        uses: actions/setup-linux@v2
-        with:
-          distribution: 'ubuntu-latest'
+      # Install dependencies if requirements.txt exists
+      - name: Install dependencies
+        run: |
+          if [ -f requirements ]; then
+            pip install -r requirements
+          else
+            echo "requirements not found, skipping installation"
+          fi
 
-      # Add any additional steps or commands as needed
+      # Run your tests or any additional build steps here
+      - name: Run tests
+        run: |
+          # Replace with actual test command, for example:
+          # pytest tests/
+          echo "Running tests..."
+
+      # Additional commands can be added here
+      # For example, build artifacts, run linting, etc.
+      # - name: Additional Step
+      #   run: |
+      #     # Add your custom commands here
+
