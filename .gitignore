@@ -2,6 +2,7 @@ settings.py
 venv
 .idea
 .env
+dockerfile
 reputation.json
 # Byte-compiled / optimized / DLL files
 __pycache__/

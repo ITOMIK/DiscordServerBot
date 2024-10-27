@@ -3,7 +3,7 @@ import asyncio
 import os
 import requests
 import random
-import youtube_dl
+import yt_dlp
 from youtubesearchpython import VideosSearch
 import threading
 import re
@@ -191,7 +191,7 @@ async def _play(ctx, url, quality="lowest"):
             voice_channel_connection = ctx.voice_client
         #isQueues[guild_id] = True
         # Use pytube to get the audio URL
-        song_info = youtube_dl.YoutubeDL({'format': 'bestaudio/best', 'verbose': True}).extract_info(url, download=False)
+        song_info = yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'verbose': True}).extract_info(url, download=False)
         song_title = song_info['title']
         t = await search_track(song_title,ctx)
         # Add the track to the queue
@@ -558,25 +558,52 @@ async def stop(ctx):
 async def play_queue(ctx, voice_channel_connection):
     start_time = 0
     guild_id = ctx.guild.id
+
+    # Инициализация очереди, если её ещё нет
     if guild_id not in isQueues:
         isQueues[guild_id] = False
     if guild_id not in queues:
         queues[guild_id] = []
         print(queues[guild_id])
+
+    # Основной цикл для воспроизведения треков из очереди
     while queues[guild_id]:
         track_url = queues[guild_id].pop(0)
-        _url = youtube_dl.YoutubeDL({'format': 'bestaudio/best', 'verbose': True}).extract_info(track_url, download=False)
-        audio_source = discord.FFmpegPCMAudio(source=_url['formats'][0]['url'],
-                                              before_options=f"-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -ss {start_time}",
-                                              options="-vn")
-        if (ctx.voice_client is not None):
+
+        # Извлечение информации о треке с использованием yt-dlp
+        ydl_opts = {'format': 'bestaudio/best', 'noplaylist': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            song_info = ydl.extract_info(track_url, download=False)
+
+        # Поиск формата с mp4
+        audio_url = None
+        for format in song_info['formats']:
+            if 'ext' in format and format['ext'] == 'mp4':
+                audio_url = format['url']
+                break
+
+        if audio_url is None:
+            print("Не найден формат mp4")
+            continue  # Переход к следующему треку, если формат не найден
+
+        # Печать URL аудиофайла
+        print(audio_url)
+
+        # Создание источника аудио для воспроизведения
+        audio_source = discord.FFmpegPCMAudio(
+            source=audio_url,
+            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            options="-vn"
+        )
+
+        if ctx.voice_client is not None:
             voice_channel_connection.play(audio_source)
 
-        # Wait for the track to finish playing
+        # Ожидание завершения воспроизведения текущего трека
         while voice_channel_connection.is_playing():
             await asyncio.sleep(1)
 
-        # Disconnect from the voice channel after the queue is empty
+    # Отключение от голосового канала, если очередь пуста
     if not voice_channel_connection.is_playing() and not isQueues[guild_id]:
         if voice_channel_connection:
             await voice_channel_connection.disconnect()
